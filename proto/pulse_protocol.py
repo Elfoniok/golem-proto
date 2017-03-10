@@ -15,7 +15,7 @@ class PulseProtocol(BaseProtocol):
     Protocol that allows to send numbered pings
     """
 
-    protocol_id = 7367795 # "pls"
+    protocol_id = 56469 # just a random number; not sure what to put here
     network_id = 0
     max_cmd_id = 1
     name = 'pls'
@@ -33,7 +33,6 @@ class PulseProtocol(BaseProtocol):
         structure = [
             ('pulse_number', rlp.sedes.big_endian_int)]
 
-        def create(self, n):
+        def create(self, proto, n):
             self.sent = True
-            return [n]
-
+            return dict(pulse_number=n)

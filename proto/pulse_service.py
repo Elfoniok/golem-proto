@@ -41,8 +41,8 @@ class PulseService(WiredService):
         log.debug('----------------------------------')
         log.debug('on_wire_protocol_stop', proto=proto)
 
-    def on_receive_pulse(self, number):
-        print "got {}".format(number)
+    def on_receive_pulse(self, pulse_number):
+        print("got {}".format(pulse_number))
 
     def broadcast_prepare(self, n, origin=None):
         self.bcast(PulseProtocol,
