@@ -11,14 +11,14 @@ import ethereum.slogging as slogging
 from devp2p.app import BaseApp
 from devp2p.discovery import NodeDiscovery
 from devp2p.peermanager import PeerManager
-from pulse_service import PulseService
+from golem_service import GolemService
 from devp2p.service import BaseService
 from ethereum.utils import encode_hex, decode_hex, sha3, privtopub
 
 slogging.PRINT_FORMAT = '%(asctime)s %(name)s:%(levelname).1s\t%(message)s'
 log = slogging.get_logger('app')
 
-services = [NodeDiscovery, PeerManager, PulseService]
+services = [NodeDiscovery, PeerManager, GolemService]
 
 privkeys = [encode_hex(sha3(i)) for i in range(100, 200)]
 pubkeys = [encode_hex(privtopub(decode_hex(k))[1:]) for k in privkeys]
@@ -49,12 +49,9 @@ def app(ctx, log_config, log_file):
             'node': {
                 'data_dir': 'data'
             },
-            'pulse': {
-                'count_from': 0,
-                'count_to': 5
-            },
             'golem': {
-                'network_id': 0
+                'network_id': 0,
+                'announcement': False
             },
             'discovery': {
                 'listen_host': '0.0.0.0',
@@ -66,8 +63,8 @@ def app(ctx, log_config, log_file):
             'p2p': {
                 'listen_host': '0.0.0.0',
                 'listen_port': 20170,
-                'max_peers': 4,
-                'min_peers': 4
+                'min_peers': 2,
+                'max_peers': 4
             }
         }
     }
@@ -86,8 +83,8 @@ def run(ctx, node_id, console):
     config['p2p']['listen_port'] += node_id
     log.info("starting", config=config)
 
-    if config['node']['data_dir'] and not os.path.exists(config['node']['data_dir']):
-        os.makedirs(config['node']['data_dir'])
+    if node_id == 0:
+        config['golem']['announcement'] = True
 
     app = Golem(config)
     app.start_console = console

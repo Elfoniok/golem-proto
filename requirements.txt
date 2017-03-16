@@ -1,3 +1,3 @@
 click>=4.0
-devp2p==0.8.1
+devp2p==0.9.0
 ethereum==1.6.0
