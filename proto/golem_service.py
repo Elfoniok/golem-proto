@@ -4,6 +4,7 @@ from ethereum import slogging
 
 import gevent
 import cron
+from devp2p.crypto import privtopub
 
 import datetime
 
@@ -30,13 +31,21 @@ class GolemService(WiredService):
     def __init__(self, app):
         log.info("Golem service init")
         self.bcast = app.services.peermanager.broadcast
-
+        self.app = app
         self.cfg = app.config['golem']
         log.info("do announcement: {}".format(self.cfg['announcement']))
         self.do_publish = self.cfg['announcement']
         super(GolemService, self).__init__(app)
+
+        # setup nodeid based on privkey
+        if 'id' not in self.config['p2p']:
+            self.id = privtopub(
+                self.config['node']['privkey_hex'].decode('hex'))
+        else:
+            self.id = self.config['p2p']['id']
+
         if self.do_publish:
-            ann = (1, "some text", "some peers", 100, "my own public key", "signature")
+            ann = (1, "some text", "some peers", 100, "my own public key", self.id)
             cron.apply_after(10, self.announce_task, ann)
 
     def on_wire_protocol_start(self, proto):
@@ -54,6 +63,19 @@ class GolemService(WiredService):
     def on_receive_announcement(self, proto, announcement_id, utc_time, allowed_peers, max_price, requestor_id, signature):
         ann = (announcement_id, utc_time, allowed_peers, max_price, requestor_id, signature)
         self.maybe_rebroadcast_announcement(proto, ann)
+        ann_short = shorten(ann)
+        log.info("Receive announcment: {}".format(ann_short))
+        peers = self.get_peers()
+        matches = [ x for x in peers if x.remote_pubkey == signature]
+        log.info("Announcment received from " , matches=matches)
+
+
+    def on_receive_offer(self, proto, prop_id, prop_hash, req_id, price, signature):
+        log.info("Receive offer: {}")
+
+    def get_peers(self):
+        peers = self.app.services.peermanager.peers
+        return peers
 
     def announce_task(self, ann, origin=None):
         ann_short = shorten(ann)
