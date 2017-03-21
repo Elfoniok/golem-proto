@@ -5,6 +5,7 @@ from logging import StreamHandler
 
 import click
 import gevent
+import random
 from gevent.event import Event
 
 import ethereum.slogging as slogging
@@ -20,9 +21,12 @@ log = slogging.get_logger('app')
 
 services = [NodeDiscovery, PeerManager, GolemService]
 
-privkeys = [encode_hex(sha3(i)) for i in range(100, 200)]
-pubkeys = [encode_hex(privtopub(decode_hex(k))[1:]) for k in privkeys]
+bs_k = encode_hex(sha3(2**30+1234567))
+bs_pk = encode_hex(privtopub(decode_hex(bs_k))[1:])
 
+secret = random.randint(2**20, 2**21)
+privkey = encode_hex(sha3(secret))
+pubkey = encode_hex(privtopub(decode_hex(privkey))[1:])
 
 class Golem(BaseApp):
     client_name = 'golem'
@@ -32,7 +36,6 @@ class Golem(BaseApp):
     default_config['client_version_string'] = client_version_string
     default_config['post_app_start_callback'] = None
     script_globals = {}
-
 
 @click.group(help='Welcome to {}'.format(Golem.client_name))
 @click.option('-l', '--log_config', multiple=False, type=str, default=":info",
@@ -47,24 +50,29 @@ def app(ctx, log_config, log_file):
         'log_file': log_file,
         'config': {
             'node': {
-                'data_dir': 'data'
+                'data_dir': 'data',
+                'privkey_hex': None,
+                'pubkey_hex': None
             },
             'golem': {
                 'network_id': 0,
-                'announcement': False
+                'min_price': 1,
+                'announcement': False,
+                'privkey_hex': None,
+                'pubkey_hex': None
             },
             'discovery': {
                 'listen_host': '0.0.0.0',
                 'listen_port': 20170,
                 'bootstrap_nodes': [
-                    'enode://%s@127.0.0.1:20170' % pubkeys[0]
+                    'enode://%s@127.0.0.1:20170' % bs_pk
                 ]
             },
             'p2p': {
                 'listen_host': '0.0.0.0',
                 'listen_port': 20170,
                 'min_peers': 2,
-                'max_peers': 4
+                'max_peers': 5
             }
         }
     }
@@ -76,17 +84,27 @@ def app(ctx, log_config, log_file):
 @click.pass_context
 def run(ctx, node_id, console):
     """Start the daemon"""
+
     config = ctx.obj['config']
-    config['node']['privkey_hex'] = privkeys[node_id]
     config['node']['data_dir'] += str(node_id)
+    config['node']['pubkey_hex'] = pubkey
+    config['node']['privkey_hex'] = privkey
+    config['golem']['privkey_hex'] = privkey
+    config['golem']['pubkey_hex'] = pubkey
     config['discovery']['listen_port'] += node_id
     config['p2p']['listen_port'] += node_id
     log.info("starting", config=config)
 
     if node_id == 0:
         config['golem']['announcement'] = True
+        config['node']['pubkey_hex'] = bs_pk
+        config['node']['privkey_hex'] = bs_k
+        config['golem']['pubkey_hex'] = bs_pk
+        config['golem']['privkey_hex'] = bs_k
 
     app = Golem(config)
+    log.debug("ann: {}, node_id: {}".format(config['golem']['announcement'],
+                                            config['golem']['pubkey_hex']))
     app.start_console = console
 
     for service in services:
