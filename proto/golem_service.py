@@ -110,9 +110,10 @@ class GolemService(WiredService):
         if GolemProtocol in peer.protocols:
             proto = peer.protocols[GolemProtocol]
             proto.send_offer(*offer)
-            self.offer = offer
             self.ann = ann
-            cron.apply_after(OFFER_LOCK_TIMEOUT, self.drop_obligation, offer)
+            self.offer = offer
+            self.ack = None
+            cron.apply_after(OFFER_LOCK_TIMEOUT, self.mb_drop_obligation, offer)
 
     def get_peers(self):
         peers = self.app.services.peermanager.peers
@@ -133,9 +134,10 @@ class GolemService(WiredService):
         ann_short = shorten(ann)
         log.debug("announce task: {}".format(ann_short))
 
-    def drop_obligation(self, offer):
-        self.offer = None
-        self.ann = None
+    def mb_drop_obligation(self, offer):
+        if self.ack is None:
+            self.offer = None
+            self.ann = None
 
     def evaluate_ann(self, ann):
         if ann.requestor_id == self.cfg['pubkey_hex']:
