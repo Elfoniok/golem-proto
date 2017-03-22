@@ -1,5 +1,5 @@
 from golem_protocol import GolemProtocol
-from task import Task, Announcement
+from task import Task, Announcement, Offer
 
 from ethereum.utils import encode_hex, decode_hex
 
@@ -147,18 +147,25 @@ class GolemService(WiredService):
         return self.cfg['min_price'] < ann.task.price
 
     def create_offer(self, ann):
+        log.warning("creating offer for ann {}".format(ann.announcement_hash))
         offer_hash = 4
         return (ann.announcement_hash, self.cfg['pubkey_hex'],
                 offer_hash, "signature")
 
     def on_receive_offer(self, proto, announcement_hash, provider_id,
                          offer_hash, signature):
-        # check if known announcement_hash
-        # check timeouts?
+        offer = Offer(announcement_hash, provider_id, offer_hash, signature)
+        log.warning("got {}".format(offer))
+        # check if announcement_hash is mine
+        S = [ann for ann in self.my_announcements
+             if ann.announcement_hash == announcement_hash ]
+        if not S:
+            log.warning("skip offer - unknown ann")
+            return
         # check signature
-        # check price >= price
         # add offer to offers for this ann
-        log.warning("got offer, not_impl")
+        ann = S[0]
+        ann.offers.append(offer)
 
     def create_task(self, price):
         tsk = Task(price)
