@@ -82,3 +82,26 @@ class GolemProtocol(BaseProtocol):
             ('acceptance_hash', rlp.sedes.big_endian_int), # hash of fields above
             ('signature', rlp.sedes.binary) # signed with Ethereum private key
         ]
+
+    class challenge(BaseProtocol.command):
+        """
+        Challenge: Messege sent to remote node in order to verify
+        that remote node is in control of given ethereum public key.
+        """
+        cmd_id = 3
+
+        structure = [
+            ('challenge', rlp.sedes.binary) # message that should be signed by peer under verification
+        ]
+
+    class respond_challenge(BaseProtocol.command):
+        """
+        Respond_challenge: Mesege sent by remote peer to prove that it is in control of given public key.
+        Signature will be chacked against golem etherum public key.
+        """
+        cmd_id = 4
+
+        structure = [
+            ('prefix', rlp.sedes.binary), # part added as a prefix to message, this is to prevent signing va banque check in blanco
+            ('signature', rlp.sedes.binary) # signature of of prefix concatenated with challenge
+        ]

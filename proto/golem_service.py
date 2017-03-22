@@ -1,7 +1,8 @@
 from golem_protocol import GolemProtocol
 from task import Task, Announcement, Offer
 
-from ethereum.utils import encode_hex, decode_hex
+from ethereum.utils import encode_hex, decode_hex, sha3
+from secp256k1 import PublicKey, PrivateKey
 
 from devp2p.service import WiredService
 import devp2p.discovery
@@ -9,7 +10,8 @@ import devp2p.discovery
 import gevent
 import random
 import cron
-from devp2p.crypto import privtopub
+from devp2p.crypto import privtopub, ECCx
+import string
 
 import datetime
 
@@ -73,6 +75,9 @@ class GolemService(WiredService):
         # register callbacks
         proto.receive_announcement_callbacks.append(self.on_receive_announcement)
         proto.receive_offer_callbacks.append(self.on_receive_offer)
+        proto.receive_challenge_callbacks.append(self.on_receive_challenge)
+        proto.receive_respond_challenge_callbacks.append(self.on_receive_respond_challenge)
+        cron.apply_after(5, self.challenge_peer, proto.peer)
         # log.info("peers: {}".format(self.app.services.peermanager.peers))
 
     def on_wire_protocol_stop(self, proto):
@@ -115,6 +120,30 @@ class GolemService(WiredService):
             self.ack = None
             cron.apply_after(OFFER_LOCK_TIMEOUT, self.mb_drop_obligation, offer)
 
+    def challenge_peer(self, peer):
+        self.prefix = self.get_random()
+        args = [self.prefix]
+        kargs = {}
+        peer.protocols[GolemProtocol].send_challenge(*args, **kargs)
+        peer.safe_to_read.wait()
+
+    def on_receive_challenge(self, proto, challenge):
+        prefix = self.get_random()
+        rawhash = sha3(prefix + challenge)
+        priv_key_raw = decode_hex(self.cfg['privkey_hex'])
+        ecx = ECCx(raw_privkey=priv_key_raw)
+        signature = ecx.sign(rawhash)
+        args = [prefix, signature]
+        kargs = {}
+        proto.peer.protocols[GolemProtocol].send_respond_challenge(*args, **kargs)
+        proto.peer.safe_to_read.wait()
+
+    def on_receive_respond_challenge(self, proto, prefix, signature):
+        rawhash = sha3(prefix + self.prefix)
+        ecx = ECCx(raw_pubkey=proto.peer.remote_pubkey)
+        if ecx.verify(signature, rawhash):
+            print "Verified"
+
     def get_peers(self):
         peers = self.app.services.peermanager.peers
         return peers
@@ -125,6 +154,9 @@ class GolemService(WiredService):
             if enc == target:
                 return peer
         return None
+
+    def get_random(self, size=64, chars=string.ascii_uppercase + string.digits):
+        return ''.join(random.choice(chars) for _ in range(size))
 
     def get_peers(self):
         peers = self.app.services.peermanager.peers

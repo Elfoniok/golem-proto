@@ -14,19 +14,25 @@ from devp2p.discovery import NodeDiscovery
 from devp2p.peermanager import PeerManager
 from golem_service import GolemService
 from devp2p.service import BaseService
-from ethereum.utils import encode_hex, decode_hex, sha3, privtopub
+from ethereum.utils import encode_hex, decode_hex
+from devp2p import crypto
+"""
+It should be noted that we are using devep2p implementation of keys which
+makes 64 bytes public keys. This is not compatible with 65 bytes raw
+ECCx keys which are used to sign ethereum transactions.
+"""
 
 slogging.PRINT_FORMAT = '%(asctime)s %(name)s:%(levelname).1s\t%(message)s'
 log = slogging.get_logger('app')
 
 services = [NodeDiscovery, PeerManager, GolemService]
 
-bs_k = encode_hex(sha3(2**30+1234567))
-bs_pk = encode_hex(privtopub(decode_hex(bs_k))[1:])
+bs_k = encode_hex(crypto.mk_privkey(str(2**30+1234567)))
+bs_pk = encode_hex(crypto.privtopub(decode_hex(bs_k)))
 
 secret = random.randint(2**20, 2**21)
-privkey = encode_hex(sha3(secret))
-pubkey = encode_hex(privtopub(decode_hex(privkey))[1:])
+privkey = encode_hex(crypto.mk_privkey(str(secret)))
+pubkey = encode_hex(crypto.privtopub(decode_hex(privkey)))
 
 class Golem(BaseApp):
     client_name = 'golem'
