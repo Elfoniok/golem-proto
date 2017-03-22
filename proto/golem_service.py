@@ -125,9 +125,6 @@ class GolemService(WiredService):
                 return peer
         return None
 
-    def on_receive_offer(self, proto, prop_id, prop_hash, req_id, price, signature):
-        log.info("Receive offer: {}")
-
     def get_peers(self):
         peers = self.app.services.peermanager.peers
         return peers
