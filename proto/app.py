@@ -14,7 +14,7 @@ from devp2p.discovery import NodeDiscovery
 from devp2p.peermanager import PeerManager
 from golem_service import GolemService
 from devp2p.service import BaseService
-from ethereum.utils import encode_hex, decode_hex
+from ethereum.utils import encode_hex, decode_hex, sha3, privtopub
 from devp2p import crypto
 """
 It should be noted that we are using devep2p implementation of keys which
@@ -31,8 +31,11 @@ bs_k = encode_hex(crypto.mk_privkey(str(2**30+1234567)))
 bs_pk = encode_hex(crypto.privtopub(decode_hex(bs_k)))
 
 secret = random.randint(2**20, 2**21)
-privkey = encode_hex(crypto.mk_privkey(str(secret)))
-pubkey = encode_hex(crypto.privtopub(decode_hex(privkey)))
+privkey_golem = encode_hex(crypto.mk_privkey(str(secret)))
+pubkey_golem = encode_hex(crypto.privtopub(decode_hex(privkey_golem)))
+
+privkey_ethereum = encode_hex(sha3(secret))
+pubkey_ethereum = encode_hex(privtopub(decode_hex(privkey_ethereum)))
 
 class Golem(BaseApp):
     client_name = 'golem'
@@ -93,10 +96,10 @@ def run(ctx, node_id, console):
 
     config = ctx.obj['config']
     config['node']['data_dir'] += str(node_id)
-    config['node']['pubkey_hex'] = pubkey
-    config['node']['privkey_hex'] = privkey
-    config['golem']['privkey_hex'] = privkey
-    config['golem']['pubkey_hex'] = pubkey
+    config['node']['pubkey_hex'] = pubkey_golem
+    config['node']['privkey_hex'] = privkey_golem
+    config['golem']['privkey_hex'] = privkey_ethereum
+    config['golem']['pubkey_hex'] = pubkey_ethereum
     config['discovery']['listen_port'] += node_id
     config['p2p']['listen_port'] += node_id
     log.info("starting", config=config)
@@ -105,8 +108,8 @@ def run(ctx, node_id, console):
         config['golem']['announcement'] = True
         config['node']['pubkey_hex'] = bs_pk
         config['node']['privkey_hex'] = bs_k
-        config['golem']['pubkey_hex'] = bs_pk
-        config['golem']['privkey_hex'] = bs_k
+        config['golem']['pubkey_hex'] = pubkey_ethereum
+        config['golem']['privkey_hex'] = privkey_ethereum
 
     app = Golem(config)
     log.debug("ann: {}, node_id: {}".format(config['golem']['announcement'],

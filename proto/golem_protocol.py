@@ -103,5 +103,6 @@ class GolemProtocol(BaseProtocol):
 
         structure = [
             ('prefix', rlp.sedes.binary), # part added as a prefix to message, this is to prevent signing va banque check in blanco
-            ('signature', rlp.sedes.binary) # signature of of prefix concatenated with challenge
+            ('signature', rlp.sedes.binary), # signature of of prefix concatenated with challenge
+            ('ethereum_pub_key', rlp.sedes.raw) # ethereum public key that node claims to have
         ]

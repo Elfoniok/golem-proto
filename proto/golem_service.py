@@ -1,7 +1,7 @@
 from golem_protocol import GolemProtocol
 from task import Task, Announcement, Offer
 
-from ethereum.utils import encode_hex, decode_hex, sha3
+from ethereum.utils import encode_hex, decode_hex, sha3, privtopub
 from secp256k1 import PublicKey, PrivateKey
 
 from devp2p.service import WiredService
@@ -10,7 +10,6 @@ import devp2p.discovery
 import gevent
 import random
 import cron
-from devp2p.crypto import privtopub, ECCx
 import string
 
 import datetime
@@ -130,18 +129,20 @@ class GolemService(WiredService):
     def on_receive_challenge(self, proto, challenge):
         prefix = self.get_random()
         rawhash = sha3(prefix + challenge)
-        priv_key_raw = decode_hex(self.cfg['privkey_hex'])
-        ecx = ECCx(raw_privkey=priv_key_raw)
-        signature = ecx.sign(rawhash)
-        args = [prefix, signature]
+        privkey = self.config['golem']['privkey_hex']
+        pubkey = self.config['golem']['pubkey_hex']
+        pk = PrivateKey(decode_hex(privkey), raw=True)
+        signature = pk.ecdsa_serialize(pk.ecdsa_sign(rawhash, True))
+        args = [prefix, signature, pubkey]
         kargs = {}
         proto.peer.protocols[GolemProtocol].send_respond_challenge(*args, **kargs)
         proto.peer.safe_to_read.wait()
 
-    def on_receive_respond_challenge(self, proto, prefix, signature):
+    def on_receive_respond_challenge(self, proto, prefix, signature, ethereum_pub_key):
         rawhash = sha3(prefix + self.prefix)
-        ecx = ECCx(raw_pubkey=proto.peer.remote_pubkey)
-        if ecx.verify(signature, rawhash):
+        pk = PublicKey(decode_hex(ethereum_pub_key), raw=True)
+        sig_raw = pk.ecdsa_deserialize(signature)
+        if pk.ecdsa_verify(rawhash, sig_raw, True):
             print "Verified"
 
     def get_peers(self):
